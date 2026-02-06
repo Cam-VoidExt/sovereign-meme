@@ -1,73 +1,80 @@
 const express = require('express');
-const { verifyEvent } = require('nostr-tools');
-const fs = require('fs');
-const crypto = require('crypto');
-const cors = require('cors');
+const multer = require('multer');
 const path = require('path');
+const fs = require('fs');
+const cors = require('cors');
 
 const app = express();
+const PORT = 3000;
+
+// 1. Enable CORS so Nostr web clients can reach your node
 app.use(cors());
-app.use(express.raw({ type: 'image/*', limit: '10mb' }));
 app.use(express.json());
+app.use(express.static('public'));
+app.use('/uploads', express.static('uploads'));
 
-const UPLOADS_DIR = path.join(__dirname, 'uploads');
-const DB_FILE = path.join(__dirname, 'database.json');
+// Ensure uploads folder exists
+if (!fs.existsSync('./uploads')) fs.mkdirSync('./uploads');
 
-// Ensure storage exists
-if (!fs.existsSync(UPLOADS_DIR)) fs.mkdirSync(UPLOADS_DIR);
-if (!fs.existsSync(DB_FILE)) fs.writeFileSync(DB_FILE, '[]');
+const storage = multer.diskStorage({
+    destination: './uploads',
+    filename: (req, file, cb) => cb(null, Date.now() + path.extname(file.originalname))
+});
+const upload = multer({ storage });
 
-const getDb = () => JSON.parse(fs.readFileSync(DB_FILE, 'utf8'));
-const saveDb = (data) => fs.writeFileSync(DB_FILE, JSON.stringify(data, null, 2));
+// Database (Local file)
+const dbFile = './memes.json';
+let memes = fs.existsSync(dbFile) ? JSON.parse(fs.readFileSync(dbFile)) : [];
 
-// Serve Frontend
-app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'index.html')));
-
-// NIP-96 Discovery Handshake for clients like Nostria
+// --- NIP-96 CONFIGURATION ---
+// This is what Nostria looks for to "auto-configure" your server
 app.get('/.well-known/nostr/nip96.json', (req, res) => {
     res.json({
-        api_url: "http://localhost:3000/upload",
-        download_url: "http://localhost:3000/m",
-        content_types: ["image/jpeg", "image/png", "image/gif"],
-        plans: { "free": { "is_active": true, "max_size": 10485760 } }
+        api_url: `http://localhost:${PORT}/upload`, // Change to your public URL when hosting
+        download_url: `http://localhost:${PORT}/uploads`,
+        supported_nips: [96, 98],
+        content_types: ["image/jpeg", "image/png", "image/gif", "image/webp"],
+        plans: {
+            "free": {
+                "name": "Sovereign Free",
+                "is_active": true,
+                "max_file_size": 10485760 // 10MB
+            }
+        }
     });
 });
 
-// Upload Logic
-app.put('/upload', async (req, res) => {
-    try {
-        const authHeader = req.headers['authorization'];
-        const tags = req.headers['x-tags'] ? req.headers['x-tags'].split(',') : [];
-        const event = JSON.parse(Buffer.from(authHeader, 'base64').toString());
-
-        if (!verifyEvent(event)) return res.status(401).send("Invalid Auth");
-
-        const hash = crypto.createHash('sha256').update(req.body).digest('hex');
-        const fileName = `${hash}.jpg`;
-        fs.writeFileSync(path.join(UPLOADS_DIR, fileName), req.body);
-
-        const db = getDb();
-        db.push({ 
-            hash, 
-            url: `http://localhost:3000/m/${fileName}`, 
-            tags: tags.map(t => t.trim()), 
-            owner: event.pubkey,
-            created_at: Math.floor(Date.now() / 1000)
-        });
-        saveDb(db);
-        
-        res.send({ url: `http://localhost:3000/m/${fileName}` });
-    } catch (e) { 
-        res.status(500).send(e.message); 
-    }
+// Upload Endpoint
+app.put('/upload', upload.single('file'), (req, res) => {
+    const newMeme = {
+        url: `http://localhost:${PORT}/uploads/${req.file.filename}`,
+        tags: req.headers['x-tags'] ? req.headers['x-tags'].split(',') : [],
+        created_at: Math.floor(Date.now() / 1000)
+    };
+    memes.push(newMeme);
+    fs.writeFileSync(dbFile, JSON.stringify(memes));
+    
+    // NIP-96 Success Response
+    res.status(201).json({
+        status: "success",
+        content: "Meme indexed successfully",
+        nip94_event: {
+            tags: [
+                ["url", newMeme.url],
+                ["x", "sha256-hash-placeholder"]
+            ]
+        }
+    });
 });
 
-// Search Logic
+// Search Endpoint
 app.get('/search', (req, res) => {
     const q = req.query.q?.toLowerCase() || '';
-    const results = getDb().filter(m => m.tags.some(t => t.includes(q)));
-    res.send(results);
+    const filtered = memes.filter(m => m.tags.some(t => t.toLowerCase().includes(q)));
+    res.json(filtered);
 });
 
-app.use('/m', express.static(UPLOADS_DIR));
-app.listen(3000, () => console.log('✅ Server: http://localhost:3000'));
+app.listen(PORT, () => {
+    console.log(`🚀 Sovereign Meme Node live at http://localhost:${PORT}`);
+    console.log(`📡 NIP-96 Config: http://localhost:${PORT}/.well-known/nostr/nip96.json`);
+});
