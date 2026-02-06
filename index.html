@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html class="bg-slate-900 text-white font-sans">
+<head>
+    <title>Sovereign Meme Node</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="p-10 max-w-4xl mx-auto">
+    <div class="flex justify-between items-start mb-6">
+        <div>
+            <h1 class="text-3xl font-black text-purple-500 italic uppercase tracking-tighter">⚡ Sovereign Meme Node</h1>
+            <p class="text-slate-400 font-mono text-sm mt-1 border-l-2 border-purple-500 pl-3">NIP-96 Compliant Media Host</p>
+        </div>
+        
+        <div class="bg-purple-900/20 border border-purple-500/30 p-3 rounded-xl flex items-center gap-3">
+            <span class="text-xl">⚡</span>
+            <div>
+                <p class="text-[10px] uppercase font-bold text-purple-400 leading-none mb-1">Support the Dev</p>
+                <p class="text-sm font-mono text-white leading-none">buffstingray14@primal.net</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="bg-slate-800 p-8 rounded-2xl mb-10 border border-slate-700 shadow-2xl">
+        <h2 class="text-lg font-bold mb-4 text-slate-300">Upload New Meme</h2>
+        <input type="file" id="fileInput" class="mb-6 block text-sm text-slate-400 file:mr-4 file:py-2 file:px-6 file:rounded-full file:border-0 file:bg-purple-600 file:text-white hover:file:bg-purple-500 file:cursor-pointer">
+        <input type="text" id="tagInput" placeholder="Tags (e.g. gm, cat, eyeroll)" class="bg-slate-700 border-none p-4 rounded-xl w-full mb-6 focus:ring-2 focus:ring-purple-500 outline-none text-white shadow-inner">
+        <button onclick="upload()" class="w-full bg-purple-600 px-4 py-4 rounded-xl font-black text-lg hover:bg-purple-500 transition-all shadow-lg active:scale-[0.98]">INDEX TO MY NODE</button>
+    </div>
+
+    <div class="flex gap-4 items-center mb-8">
+        <input type="text" id="searchInput" oninput="search()" placeholder="Search your index..." class="bg-slate-800 border-slate-700 border p-4 rounded-xl flex-1 focus:ring-2 focus:ring-purple-500 outline-none shadow-sm">
+    </div>
+    
+    <div id="results" class="grid grid-cols-2 md:grid-cols-3 gap-6"></div>
+
+    <script>
+        async function upload() {
+            const file = document.getElementById('fileInput').files[0];
+            const tags = document.getElementById('tagInput').value;
+            if (!file || !window.nostr) return alert("Select a file and ensure your Nostr extension (Alby) is active!");
+
+            // Authenticate with Nostr
+            const event = await window.nostr.signEvent({
+                kind: 24242, 
+                created_at: Math.floor(Date.now()/1000), 
+                tags: [['t', 'upload']], 
+                content: 'Authorize Meme Upload'
+            });
+
+            const auth = btoa(JSON.stringify(event));
+            
+            const res = await fetch('/upload', {
+                method: 'PUT',
+                headers: { 'Authorization': auth, 'x-tags': tags },
+                body: file
+            });
+            
+            if(res.ok) {
+                document.getElementById('fileInput').value = '';
+                document.getElementById('tagInput').value = '';
+                search();
+            } else {
+                alert("Upload failed. Check server console.");
+            }
+        }
+
+        async function search() {
+            const q = document.getElementById('searchInput').value;
+            const res = await fetch(`/search?q=${q}`);
+            const data = await res.json();
+            document.getElementById('results').innerHTML = data.reverse().map(m => `
+                <div class="bg-slate-800 p-3 rounded-2xl border border-slate-700 group hover:border-purple-500/50 transition-all shadow-md">
+                    <img src="${m.url}" class="rounded-xl mb-3 w-full object-cover aspect-square shadow-inner bg-slate-900">
+                    <div class="text-[11px] text-slate-500 font-mono truncate px-1 italic">#${m.tags.join(' #')}</div>
+                </div>
+            `).join('');
+        }
+        // Initial load
+        search();
+    </script>
+</body>
+</html>
