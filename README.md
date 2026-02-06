@@ -1,7 +1,7 @@
 # ⚡ Sovereign Meme Node (NIP-96)
 [![License: MIT](https://img.shields.io/badge/License-MIT-purple.svg)](https://opensource.org/licenses/MIT)
 
-A lightweight, sovereign media hosting node built for the Nostr ecosystem. This server provides a private, self-hosted alternative to centralized media providers, allowing you to host your own assets while remaining 100% compatible with Nostr clients like Nostria.
+A lightweight, sovereign media hosting node built for the Nostr ecosystem. This server provides a private, self-hosted alternative to centralized media providers, allowing you to host your own assets while remaining 100% compatible with Nostr clients.
 
 ---
 
