@@ -1,22 +1,19 @@
-# ⚡ Sovereign Meme Node (NIP-96)
-[![License: MIT](https://img.shields.io/badge/License-MIT-purple.svg)](https://opensource.org/licenses/MIT)
+# ⚡ Sovereign Media Node
 
-A lightweight, sovereign media hosting node built for the Nostr ecosystem. This server provides a private, self-hosted alternative to centralized media providers, allowing you to host your own assets while remaining 100% compatible with Nostr clients like Nostria.
+A lightweight, content-addressable storage (CAS) server for the Nostr ecosystem. This node is designed to host decentralized media packs and satisfy Blossom protocol queries.
 
----
+## 🛠️ Protocol Support
+* **NIP-30030 (Media Packs):** Supports broadcasting and aggregating distributed media sets (emoji/gif/sticker packs).
+* **Blossom (NIP-126):** Implements Content-Addressable Storage using SHA-256 hashing.
+* **Sovereign Hosting:** Fully self-contained Node.js backend with no external tracking or third-party API dependencies.
 
-## 💎 Features
-* **NIP-96 Compliant:** Fully supports the Nostr Media Upload API standard.
-* **Sovereign Storage:** Files are stored locally on your own hardware, not a third-party cloud.
-* **Environment Configuration:** Uses `.env` for seamless portability between local and production servers.
-* **Built-in Dashboard:** A custom UI for managing and searching your indexed media.
+## 🚀 Key Endpoints
+* `GET /:hash` - Retrieves a media blob by its SHA-256 identifier.
+* `GET /list/:pubkey` - Returns a Blossom-compliant JSON list of all media hosted on this node.
+* `PUT /upload` - Secure upload endpoint with automated SHA-256 renaming and metadata generation.
 
----
-
-## 🚀 Installation & Setup
-
-### 1. Clone & Install
-```powershell
-git clone [https://github.com/Cam-VoidExt/sovereign-meme.git](https://github.com/Cam-VoidExt/sovereign-meme.git)
-cd sovereign-meme
-npm install
+## 📦 Deployment
+1. Clone the branch: `git clone -b blossom [repo-url]`
+2. Install dependencies: `npm install`
+3. Configure your `.env` (Port, Domain, Lightning Address).
+4. Start the node: `pm2 start server.js --name "sovereign-node"`
