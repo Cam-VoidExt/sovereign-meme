@@ -1,91 +1,188 @@
 <!DOCTYPE html>
-<html class="bg-slate-900 text-white font-sans">
+<html lang="en">
 <head>
-    <title>Sovereign Meme Node</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-</head>
-<body class="p-10 max-w-4xl mx-auto">
-    <div class="flex justify-between items-start mb-6">
-        <div>
-            <h1 class="text-3xl font-black text-purple-500 italic uppercase tracking-tighter">⚡ Sovereign Meme Node</h1>
-            <p class="text-slate-400 font-mono text-sm mt-1 border-l-2 border-purple-500 pl-3">NIP-96 Compliant Media Host</p>
-        </div>
-    </div>
-
-    <div class="bg-slate-800 p-8 rounded-2xl border border-slate-700 shadow-2xl mb-10">
-        <h2 class="text-xl font-bold mb-6 text-slate-200">Upload New Meme</h2>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sovereign Node</title>
+    <style>
+        :root { --bg: #0f172a; --card: #1e293b; --accent: #a855f7; --text: #f8fafc; --dim: #94a3b8; --success: #4ade80; --neon: #ff00ff; }
+        body { background: var(--bg); color: var(--text); font-family: -apple-system, system-ui, sans-serif; padding: 40px; max-width: 900px; margin: auto; line-height: 1.5; }
         
-        <div class="space-y-4">
-            <div class="flex items-center space-x-4">
-                <label class="cursor-pointer bg-purple-700 hover:bg-purple-600 px-6 py-3 rounded-xl font-bold transition-all shadow-lg">
-                    Choose File
-                    <input type="file" id="fileInput" class="hidden" onchange="document.getElementById('fileName').textContent = this.files[0].name">
-                </label>
-                <span id="fileName" class="text-slate-500 font-mono text-sm italic">No file selected</span>
-            </div>
+        header { border-bottom: 1px solid #334155; padding-bottom: 20px; margin-bottom: 30px; }
+        h1 { font-style: italic; font-weight: 900; text-transform: uppercase; color: var(--accent); margin: 0; letter-spacing: 2px; }
+        .tagline { color: var(--dim); font-size: 14px; font-weight: 500; margin-top: 5px; letter-spacing: 0.5px; }
+        
+        .panel { background: var(--card); padding: 30px; border-radius: 16px; margin-bottom: 15px; border: 1px solid #334155; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.3); }
+        .input-group { display: flex; flex-direction: column; gap: 15px; }
+        input { background: #0f172a; border: 1px solid #334155; padding: 14px; border-radius: 8px; color: white; outline: none; }
+        input:focus { border-color: var(--accent); }
+        
+        button { background: var(--accent); color: white; border: none; padding: 16px; border-radius: 8px; font-weight: 800; cursor: pointer; text-transform: uppercase; transition: 0.2s; }
+        button:hover { transform: translateY(-1px); filter: brightness(1.1); }
+        button:disabled { opacity: 0.5; cursor: not-allowed; }
 
-            <input type="text" id="tagInput" placeholder="#nostr, #nostria" class="w-full bg-slate-900 border border-slate-700 p-4 rounded-xl focus:outline-none focus:border-purple-500 transition-all font-mono">
-            
-            <button onclick="upload()" class="w-full bg-purple-600 hover:bg-purple-500 p-4 rounded-xl font-black uppercase italic tracking-widest text-lg transition-all transform active:scale-95 shadow-xl">
-                Index to my Node
-            </button>
+        .zap-section { text-align: center; margin: 25px 0 40px 0; }
+        .zap-link { 
+            color: var(--neon); 
+            text-decoration: none; 
+            font-size: 18px; 
+            font-weight: 900;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            transition: 0.2s;
+            display: inline-block;
+        }
+        .zap-link b { font-family: monospace; font-size: 16px; color: var(--text); opacity: 0.8; font-weight: normal; margin-left: 10px; text-transform: lowercase; }
+        .zap-link:hover { transform: scale(1.03); opacity: 0.9; }
+
+        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 20px; }
+        .meme-card { background: var(--card); padding: 10px; border-radius: 14px; cursor: pointer; border: 2px solid transparent; transition: 0.2s; text-align: center; }
+        .meme-card img { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 10px; margin-bottom: 8px; }
+        .selected { border-color: var(--accent); background: #2e1065; transform: scale(1.05); }
+
+        #monitor { margin-top: 30px; background: #000; border-radius: 12px; padding: 20px; border: 1px solid #334155; display: none; }
+        .log-entry { font-family: monospace; font-size: 13px; margin-bottom: 5px; display: flex; justify-content: space-between; border-bottom: 1px solid #111; padding: 4px 0; }
+        .status-ok { color: var(--success); }
+        .status-err { color: #f87171; }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>⚡ Sovereign Node</h1>
+        <div class="tagline">Pseudo-anonymous. Fully Decentralized. Zero Tracking. Your Media, Your Rules.</div>
+    </header>
+
+    <div class="panel">
+        <div class="input-group">
+            <input type="file" id="fileInput">
+            <input type="text" id="tagInput" placeholder="Asset Shortcode (e.g. 'victory')">
+            <button onclick="upload()">Index to Node</button>
         </div>
     </div>
 
-    <input type="text" id="searchInput" oninput="search()" placeholder="Search your index..." class="w-full bg-slate-800 border border-slate-700 p-4 rounded-xl mb-8 focus:outline-none focus:border-purple-500 font-mono">
+    <div class="zap-section">
+        <a href="https://primal.net/p/npub1vtghyad6lc3cduuye6x809esgwj5h4tmr53wxy9plu7x34ngjnysh4csvh" target="_blank" class="zap-link">
+            ⚡ Zap the dev <b>buffstingray14@primal.net</b>
+        </a>
+    </div>
 
-    <div id="results" class="grid grid-cols-2 md:grid-cols-3 gap-4"></div>
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+        <h2 style="font-size:11px; text-transform:uppercase; color:var(--dim); letter-spacing:1px;">Vault Library</h2>
+        <button id="broadcastBtn" onclick="publishToRelays()">Broadcast Pack</button>
+    </div>
+
+    <div id="results" class="grid"></div>
+
+    <div id="monitor">
+        <div style="color:var(--dim); font-size:10px; text-transform:uppercase; margin-bottom:10px;">Network Propagation Monitor</div>
+        <div id="log-content"></div>
+    </div>
 
     <script>
+        let myLibrary = [];
+        let selected = new Set();
+        const RELAYS = ["wss://nos.lol", "wss://relay.damus.io", "wss://relay.snort.social", "wss://relay.primal.net"];
+
         async function upload() {
-            const fileInput = document.getElementById('fileInput');
-            const tagInput = document.getElementById('tagInput');
-            
-            if (!fileInput.files[0]) return alert("Select a file first!");
-
-            const file = fileInput.files[0];
-            const tags = tagInput.value;
-
-            // PREPARE THE FORM (The Pro Fix)
-            const formData = new FormData();
-            formData.append('file', file);
-
-            try {
-                const res = await fetch('/upload', {
-                    method: 'PUT',
-                    headers: { 'x-tags': tags },
-                    body: formData
-                });
-
-                if (res.ok) {
-                    fileInput.value = '';
-                    tagInput.value = '';
-                    document.getElementById('fileName').textContent = 'No file selected';
-                    search();
-                } else {
-                    alert("Upload failed. Check server console.");
-                }
-            } catch (err) {
-                console.error(err);
-                alert("Connection error.");
-            }
+            const file = document.getElementById('fileInput').files[0];
+            const tags = document.getElementById('tagInput').value;
+            if (!file) return;
+            const fd = new FormData();
+            fd.append('file', file);
+            await fetch('/upload', { 
+                method: 'PUT', 
+                headers: { 'x-tags': tags, 'x-nip96': 'true' }, 
+                body: fd 
+            });
+            document.getElementById('fileInput').value = '';
+            document.getElementById('tagInput').value = '';
+            search();
         }
 
         async function search() {
-            const q = document.getElementById('searchInput').value;
-            const res = await fetch(`/search?q=${q}`);
-            const data = await res.json();
-            const resultsDiv = document.getElementById('results');
-            
-            resultsDiv.innerHTML = data.reverse().map(m => `
-                <div class="bg-slate-800 p-3 rounded-2xl border border-slate-700 group hover:border-purple-500 transition-all">
-                    <img src="${m.url}" class="rounded-xl mb-3 w-full object-cover aspect-square shadow-lg">
-                    <div class="text-[11px] text-slate-500 font-mono truncate px-1 italic">#${m.tags.join(' #')}</div>
+            const res = await fetch('/search');
+            myLibrary = await res.json();
+            render();
+        }
+
+        function toggle(url) {
+            selected.has(url) ? selected.delete(url) : selected.add(url);
+            render();
+        }
+
+        function render() {
+            const div = document.getElementById('results');
+            div.innerHTML = myLibrary.map(m => `
+                <div onclick="toggle('${m.url}')" class="meme-card ${selected.has(m.url) ? 'selected' : ''}">
+                    <img src="${m.url}">
+                    <div style="font-size:10px; color:var(--dim); font-weight:bold;">:${m.tags[0]}:</div>
                 </div>
             `).join('');
         }
 
-        // Load initial memes
+        function logStatus(relay, message, isError = false) {
+            const monitor = document.getElementById('monitor');
+            const log = document.getElementById('log-content');
+            monitor.style.display = 'block';
+            
+            let existing = document.getElementById(`log-${relay.replace(/[^a-z0-9]/gi, '')}`);
+            if (!existing) {
+                existing = document.createElement('div');
+                existing.id = `log-${relay.replace(/[^a-z0-9]/gi, '')}`;
+                existing.className = 'log-entry';
+                log.appendChild(existing);
+            }
+            existing.innerHTML = `<span>${relay}</span><span class="${isError ? 'status-err' : 'status-ok'}">${message}</span>`;
+        }
+
+        async function publishToRelays() {
+            if (!window.nostr) return alert("Nostr extension not found.");
+            const pack = myLibrary.filter(m => selected.has(m.url));
+            if (pack.length === 0) return alert("Select library assets first.");
+
+            document.getElementById('log-content').innerHTML = '';
+            const btn = document.getElementById('broadcastBtn');
+            btn.disabled = true;
+            btn.innerText = "Broadcasting...";
+
+            try {
+                const config = await (await fetch('/config')).json();
+                const event = {
+                    kind: 30030,
+                    created_at: Math.floor(Date.now() / 1000),
+                    content: "Sovereign Media Pack",
+                    tags: [["d", "sovereign-pack-1"]]
+                };
+
+                if (config.lud16) event.tags.push(["lud16", config.lud16]);
+                pack.forEach(m => {
+                    event.tags.push(["emoji", m.tags[0], m.url]);
+                    event.tags.push(["x", m.sha256]); 
+                });
+
+                const signed = await window.nostr.signEvent(event);
+                
+                RELAYS.forEach(r => {
+                    logStatus(r, "CONNECTING...");
+                    const ws = new WebSocket(r);
+                    ws.onopen = () => { ws.send(JSON.stringify(["EVENT", signed])); };
+                    ws.onmessage = (msg) => {
+                        const data = JSON.parse(msg.data);
+                        if (data[0] === "OK") {
+                            logStatus(r, "SUCCESS ✅");
+                            ws.close();
+                        }
+                    };
+                    ws.onerror = () => logStatus(r, "FAILED ❌", true);
+                    setTimeout(() => { if(ws.readyState === 1) ws.close(); }, 7000);
+                });
+
+            } catch (e) { alert(e.message); }
+            finally {
+                btn.innerText = "Broadcast Pack";
+                btn.disabled = false;
+            }
+        }
         search();
     </script>
 </body>

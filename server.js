@@ -10,67 +10,83 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 const DOMAIN = process.env.DOMAIN || `http://localhost:${PORT}`;
 
-// Middleware & Routing
 app.use(cors());
 app.use(express.json());
 app.use(express.static('public')); 
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
-// Initialize Folders & Database
 if (!fs.existsSync('./uploads')) fs.mkdirSync('./uploads');
 const dbFile = './memes.json';
 let memes = fs.existsSync(dbFile) ? JSON.parse(fs.readFileSync(dbFile)) : [];
 
-// Storage Engine
+// BLOSSOM COMPATIBILITY: Rename files to their SHA-256 hash
 const storage = multer.diskStorage({
     destination: './uploads',
-    filename: (req, file, cb) => cb(null, Date.now() + path.extname(file.originalname))
+    filename: (req, file, cb) => {
+        cb(null, 'temp-' + Date.now()); // Rename after hash is calculated
+    }
 });
+
 const upload = multer({ storage });
 
-// NIP-96 Handshake
-app.get('/.well-known/nostr/nip96.json', (req, res) => {
-    res.json({
-        api_url: `${DOMAIN}/upload`,
-        download_url: `${DOMAIN}/uploads`,
-        supported_nips: [96, 98],
-        content_types: ["image/jpeg", "image/png", "image/gif", "image/webp"],
-        plans: { "free": { "name": "Sovereign Free", "is_active": true, "max_file_size": 10485760 } }
+app.get('/config', (req, res) => {
+    res.json({ 
+        lud16: process.env.LIGHTNING_ADDRESS || "",
+        domain: DOMAIN
     });
 });
 
-// NIP-94 Compliant Upload
 app.put('/upload', upload.single('file'), (req, res) => {
-    if (!req.file) return res.status(400).json({ status: "error", message: "No file uploaded" });
+    if (!req.file) return res.status(400).send("No file.");
     
     const fileBuffer = fs.readFileSync(req.file.path);
     const hash = crypto.createHash('sha256').update(fileBuffer).digest('hex');
+    const ext = path.extname(req.file.originalname);
+    const finalFilename = `${hash}${ext}`;
+    const finalPath = path.join('./uploads', finalFilename);
+
+    // Rename file to its SHA256 hash (Blossom Style)
+    fs.renameSync(req.file.path, finalPath);
     
     const newMeme = {
-        url: `${DOMAIN}/uploads/${req.file.filename}`,
-        tags: req.headers['x-tags'] ? req.headers['x-tags'].split(',') : [],
-        created_at: Math.floor(Date.now() / 1000),
-        sha256: hash
+        url: `${DOMAIN}/uploads/${finalFilename}`,
+        tags: req.headers['x-tags'] ? [req.headers['x-tags']] : ['meme'],
+        sha256: hash,
+        created_at: Date.now()
     };
     
     memes.push(newMeme);
     fs.writeFileSync(dbFile, JSON.stringify(memes));
-    
-    res.status(201).json({ 
-        status: "success", 
-        content: "Meme indexed", 
-        nip94_event: { tags: [["url", newMeme.url], ["x", hash]] } 
-    });
+    res.status(201).json(newMeme);
 });
 
-// Search API
+// BLOSSOM COMPATIBILITY: Fetch by hash
+app.get('/:hash', (req, res) => {
+    const hash = req.params.hash;
+    const meme = memes.find(m => m.sha256 === hash || m.url.includes(hash));
+    if (meme) {
+        const filename = path.basename(meme.url);
+        res.sendFile(path.join(__dirname, 'uploads', filename));
+    } else {
+        res.status(404).send("Blob not found");
+    }
+});
+
 app.get('/search', (req, res) => {
-    const q = req.query.q?.toLowerCase() || '';
-    const filtered = memes.filter(m => m.tags.some(t => t.toLowerCase().includes(q)));
-    res.json(filtered);
+    res.json(memes.sort((a,b) => b.created_at - a.created_at));
+});
+
+// BLOSSOM LIST ENDPOINT: For distributed aggregation
+app.get('/list/:pubkey', (req, res) => {
+    // For now, return all memes as a Blossom-compliant list
+    res.json(memes.map(m => ({
+        url: m.url,
+        sha256: m.sha256,
+        size: fs.statSync(path.join('./uploads', path.basename(m.url))).size,
+        uploaded: Math.floor(m.created_at / 1000)
+    })));
 });
 
 app.listen(PORT, () => {
-    console.log(`🚀 Sovereign Node live: ${DOMAIN}`);
-    console.log(`📡 Handshake: ${DOMAIN}/.well-known/nostr/nip96.json`);
+    console.log(`\n⚡ Sovereign Blossom Node Active: ${DOMAIN}\n`);
 });
